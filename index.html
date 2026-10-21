@@ -126,6 +126,13 @@ details td, details th { border-bottom: 1px solid var(--border); padding: 3px 10
 .meta { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
 .more { margin-top: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text-primary); border-radius: 8px; padding: 8px 16px; }
 .empty { color: var(--text-muted); padding: 16px 0; }
+.brief { margin-bottom: 12px; display: none; }
+.brief.on { display: block; }
+.brief .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline; }
+.brief .when { color: var(--text-muted); font-size: 13px; }
+.brief .body { white-space: pre-wrap; font-size: 15px; line-height: 1.7; margin: 0; }
+.brief .body.fold { max-height: 9.5em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
+.brief .toggle { margin-top: 8px; border: 0; background: none; color: var(--accent); padding: 0; font-size: 14px; }
 .err { color: #e34948; }
 </style>
 </head>
@@ -153,6 +160,12 @@ details td, details th { border-bottom: 1px solid var(--border); padding: 3px 10
     </div>
     <button class="kwchip" id="kwchip"></button>
   </div>
+
+  <section class="card brief" id="brief">
+    <div class="head"><h2>AI 아침 브리핑</h2><span class="when" id="briefWhen"></span></div>
+    <p class="body fold" id="briefBody"></p>
+    <button class="toggle" id="briefToggle">전체 보기</button>
+  </section>
 
   <div class="grid tiles" id="tiles"></div>
 
@@ -372,6 +385,15 @@ fetch(DATA_URL)
       return { ...it, day, atSort: day + ' ' + String(it.at).slice(11).padStart(5, '0') };
     });
     $('updated').textContent = `자료 기준: ${data.updated} (최근 ${data.days}일)`;
+    if (data.briefing && data.briefing.text) {
+      $('brief').classList.add('on');
+      $('briefWhen').textContent = `${data.briefing.at} · 글 ${data.briefing.count}건 바탕 · Gemini 작성`;
+      $('briefBody').textContent = data.briefing.text;
+      $('briefToggle').onclick = () => {
+        const folded = $('briefBody').classList.toggle('fold');
+        $('briefToggle').textContent = folded ? '전체 보기' : '접기';
+      };
+    }
     render();
   })
   .catch(err => {
