@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>정보원 상황판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ===== 색깔 약속 (밝은 화면 / 어두운 화면) ===== */
+:root {
+  color-scheme: light;
+  --bg: #f4f4f2;
+  --surface-1: #fcfcfb;
+  --border: #e3e2de;
+  --grid: #ecebe7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --accent: #2a78d6;
+  --series-1: #2a78d6;  /* 뉴스 */
+  --series-2: #eb6834;  /* 웹 */
+  --series-3: #1baf7a;  /* 텔레그램 */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110;
+    --surface-1: #1a1a19;
+    --border: #2e2e2c;
+    --grid: #262624;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e88;
+    --accent: #3987e5;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110;
+  --surface-1: #1a1a19;
+  --border: #2e2e2c;
+  --grid: #262624;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8e88;
+  --accent: #3987e5;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Noto Sans KR', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+h1 { font-size: 24px; margin: 0; }
+.sub { color: var(--text-secondary); margin: 2px 0 0; font-size: 14px; }
+.updated { color: var(--text-muted); font-size: 13px; }
+button { font: inherit; cursor: pointer; }
+
+/* 고르기 줄 */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+.seg { display: inline-flex; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+.seg button { border: 0; background: none; color: var(--text-secondary); padding: 6px 12px; border-radius: 6px; font-size: 14px; }
+.seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface-1); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.kwchip { display: none; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); border-radius: 999px; padding: 5px 12px; font-size: 14px; }
+.kwchip.on { display: inline-block; }
+
+/* 카드 */
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.card h2 { font-size: 16px; margin: 0 0 12px; }
+.grid { display: grid; gap: 12px; }
+.tiles { grid-template-columns: repeat(4, 1fr); margin-bottom: 12px; }
+.two { grid-template-columns: 3fr 2fr; margin-bottom: 12px; }
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .two { grid-template-columns: 1fr; }
+}
+.tile .label { color: var(--text-secondary); font-size: 14px; }
+.tile .num { font-size: 32px; font-weight: 700; line-height: 1.2; }
+.tile .today { color: var(--text-muted); font-size: 13px; }
+
+/* 날짜별 막대 그래프 */
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: 240px; overflow: visible; }
+.chart .axis { fill: var(--text-muted); font-size: 11px; }
+.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart .hit { fill: transparent; }
+.chart .hit:hover { fill: var(--grid); opacity: .5; }
+.tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; white-space: nowrap; z-index: 2; }
+.tip b { display: block; margin-bottom: 2px; }
+details { margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+details table { border-collapse: collapse; margin-top: 6px; }
+details td, details th { border-bottom: 1px solid var(--border); padding: 3px 10px 3px 0; text-align: left; }
+
+/* 키워드·출처 순위 */
+.bars { list-style: none; margin: 0; padding: 0; }
+.bars li { display: grid; grid-template-columns: 120px 1fr 40px; align-items: center; gap: 8px; padding: 3px 0; font-size: 14px; }
+.bars button { all: unset; display: contents; cursor: pointer; }
+.bars .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.bars .track { height: 14px; }
+.bars .fill { height: 14px; border-radius: 0 4px 4px 0; background: var(--accent); min-width: 2px; }
+.bars .cnt { text-align: right; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.bars li:hover .name { text-decoration: underline; }
+.src-tag { font-size: 12px; color: var(--text-muted); }
+
+/* 최신 글 목록 */
+.search { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text-primary); font: inherit; margin-bottom: 8px; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.list a { color: var(--text-primary); text-decoration: none; font-weight: 500; overflow-wrap: anywhere; }
+.list a:hover { text-decoration: underline; }
+.meta { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+.more { margin-top: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text-primary); border-radius: 8px; padding: 8px 16px; }
+.empty { color: var(--text-muted); padding: 16px 0; }
+.err { color: #e34948; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>정보원 상황판</h1>
+      <p class="sub">세 정보원(뉴스 · 웹 · 텔레그램)이 모은 자료를 한눈에</p>
+    </div>
+    <div class="updated" id="updated">자료를 불러오는 중…</div>
+  </header>
+
+  <div class="filters">
+    <div class="seg" id="period" role="group" aria-label="기간">
+      <button data-days="1">오늘</button>
+      <button data-days="7" aria-pressed="true">7일</button>
+      <button data-days="14">14일</button>
+    </div>
+    <div class="seg" id="source" role="group" aria-label="정보원">
+      <button data-src="" aria-pressed="true">전체</button>
+      <button data-src="뉴스"><span class="dot" style="background:var(--series-1)"></span>뉴스</button>
+      <button data-src="웹"><span class="dot" style="background:var(--series-2)"></span>웹</button>
+      <button data-src="텔레그램"><span class="dot" style="background:var(--series-3)"></span>텔레그램</button>
+    </div>
+    <button class="kwchip" id="kwchip"></button>
+  </div>
+
+  <div class="grid tiles" id="tiles"></div>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>날짜별 모인 글</h2>
+      <div class="legend" id="legend"></div>
+      <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
+      <details><summary>표로 보기</summary><div id="chartTable"></div></details>
+    </section>
+    <section class="card">
+      <h2>많이 나온 키워드</h2>
+      <ul class="bars" id="kwBars"></ul>
+    </section>
+  </div>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>최신 글</h2>
+      <input class="search" id="search" type="search" placeholder="제목·내용에서 찾기">
+      <ul class="list" id="list"></ul>
+      <button class="more" id="more">더 보기</button>
+    </section>
+    <section class="card">
+      <h2>많이 나온 언론사 · 사이트 · 채널</h2>
+      <ul class="bars" id="fromBars"></ul>
+    </section>
+  </div>
+</div>
+
+<script>
+// ===== 설정: 스크랩북 열람 창구(Apps Script 웹 앱) 주소 =====
+const DATA_URL = 'https://script.google.com/macros/s/AKfycbzVmbWTdmIPA7xR_-K9ExCtgCZLT1YBuOrD6Jkb6dRhtipfz8yPL5mNCTJiewlPk4h7Yg/exec';
+
+const SOURCES = [
+  { key: '뉴스', color: 'var(--series-1)' },
+  { key: '웹', color: 'var(--series-2)' },
+  { key: '텔레그램', color: 'var(--series-3)' },
+];
+const state = { days: 7, src: '', kw: '', q: '', shown: 30 };
+let ALL = [];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// 한국 시간 기준 'yyyy-MM-dd'
+function kstDate(offsetDays) {
+  const d = new Date(Date.now() + 9 * 3600e3 - offsetDays * 86400e3);
+  return d.toISOString().slice(0, 10);
+}
+// 날짜 칸이 '2026-10-21 6:10'처럼 올 때도 'yyyy-MM-dd'로
+function dayOf(s) {
+  const m = String(s).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : '';
+}
+const kwList = it => String(it.kw || '').split(',').map(s => s.trim()).filter(Boolean);
+
+// 지금 고른 조건에 맞는 글
+function filtered({ ignoreSrc = false, ignoreKw = false } = {}) {
+  const from = kstDate(state.days - 1);
+  const q = state.q.toLowerCase();
+  return ALL.filter(it =>
+    it.day >= from &&
+    (ignoreSrc || !state.src || it.src === state.src) &&
+    (ignoreKw || !state.kw || kwList(it).includes(state.kw)) &&
+    (!q || (it.title + ' ' + it.from).toLowerCase().includes(q)));
+}
+
+function renderTiles() {
+  const items = filtered({ ignoreSrc: true });
+  const today = kstDate(0);
+  const box = (label, list, color) => `
+    <div class="card tile">
+      <div class="label">${color ? `<span class="dot" style="background:${color}"></span>` : ''}${label}</div>
+      <div class="num">${list.length.toLocaleString()}</div>
+      <div class="today">오늘 ${list.filter(i => i.day === today).length.toLocaleString()}건</div>
+    </div>`;
+  $('tiles').innerHTML = box('전체', items) +
+    SOURCES.map(s => box(s.key, items.filter(i => i.src === s.key), s.color)).join('');
+}
+
+function renderChart() {
+  const items = filtered();
+  const days = [];
+  for (let i = state.days - 1; i >= 0; i--) days.push(kstDate(i));
+  const srcs = SOURCES.filter(s => !state.src || s.key === state.src);
+  const counts = days.map(d => {
+    const row = { day: d, total: 0 };
+    srcs.forEach(s => { row[s.key] = items.filter(i => i.day === d && i.src === s.key).length; row.total += row[s.key]; });
+    return row;
+  });
+
+  $('legend').innerHTML = srcs.map(s => `<span><span class="dot" style="background:${s.color}"></span>${s.key}</span>`).join('');
+
+  const W = 600, H = 240, L = 36, B = 22, T = 8;
+  const max = Math.max(1, ...counts.map(c => c.total));
+  const step = Math.pow(10, Math.floor(Math.log10(max)));
+  const top = Math.ceil(max / step) * step;
+  const y = v => T + (H - T - B) * (1 - v / top);
+  const bw = (W - L) / days.length;
+  const barW = Math.min(36, bw * 0.6);
+
+  let svg = '';
+  [0, top / 2, top].forEach(v => {
+    svg += `<line class="gridline" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/>`;
+    svg += `<text class="axis" x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  });
+  counts.forEach((c, i) => {
+    const cx = L + bw * i + bw / 2;
+    let acc = 0;
+    const segs = srcs.filter(s => c[s.key] > 0);
+    segs.forEach((s, j) => {
+      const y0 = y(acc), y1 = y(acc + c[s.key]);
+      const isTop = j === segs.length - 1;
+      // 막대 사이 2px 틈, 맨 위만 둥글게
+      const h = Math.max(0, y0 - y1 - (j > 0 ? 2 : 0));
+      svg += isTop && h > 5
+        ? `<path fill="${s.color}" d="M${cx - barW / 2},${y1 + h} v${-(h - 4)} q0,-4 4,-4 h${barW - 8} q4,0 4,4 v${h - 4} z"/>`
+        : `<rect fill="${s.color}" x="${cx - barW / 2}" y="${y1}" width="${barW}" height="${h}"/>`;
+      acc += c[s.key];
+    });
+    if (days.length <= 7 || i % 2 === 0 || i === days.length - 1) {
+      svg += `<text class="axis" x="${cx}" y="${H - 6}" text-anchor="middle">${c.day.slice(5).replace('-', '/')}</text>`;
+    }
+    svg += `<rect class="hit" data-i="${i}" x="${L + bw * i}" y="${T}" width="${bw}" height="${H - T - B}"/>`;
+  });
+
+  const chart = $('chart');
+  chart.querySelector('svg')?.remove();
+  chart.insertAdjacentHTML('afterbegin', `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="날짜별 모인 글 수">${svg}</svg>`);
+
+  const tip = $('tip');
+  chart.querySelectorAll('.hit').forEach(el => {
+    el.addEventListener('mousemove', e => {
+      const c = counts[el.dataset.i];
+      tip.innerHTML = `<b>${c.day} · ${c.total}건</b>` +
+        srcs.map(s => `<div><span class="dot" style="background:${s.color}"></span>${s.key} ${c[s.key]}</div>`).join('');
+      const r = chart.getBoundingClientRect();
+      let x = e.clientX - r.left + 12;
+      if (x + 160 > r.width) x = e.clientX - r.left - 160;
+      tip.style.left = x + 'px';
+      tip.style.top = (e.clientY - r.top - 10) + 'px';
+      tip.style.display = 'block';
+    });
+    el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  });
+
+  $('chartTable').innerHTML = `<table><tr><th>날짜</th>${srcs.map(s => `<th>${s.key}</th>`).join('')}<th>합계</th></tr>` +
+    counts.map(c => `<tr><td>${c.day}</td>${srcs.map(s => `<td>${c[s.key]}</td>`).join('')}<td>${c.total}</td></tr>`).join('') + '</table>';
+}
+
+function rankBars(el, pairs, onClick) {
+  if (!pairs.length) { el.innerHTML = '<li class="empty">아직 자료가 없어요</li>'; return; }
+  const max = pairs[0][1];
+  el.innerHTML = pairs.map(([name, n, tag]) => `
+    <li data-name="${esc(name)}">
+      <span class="name" title="${esc(name)}">${esc(name)}${tag ? ` <span class="src-tag">${esc(tag)}</span>` : ''}</span>
+      <span class="track"><span class="fill" style="display:block;width:${(n / max * 100).toFixed(1)}%"></span></span>
+      <span class="cnt">${n}</span>
+    </li>`).join('');
+  if (onClick) el.querySelectorAll('li').forEach(li => { li.style.cursor = 'pointer'; li.onclick = () => onClick(li.dataset.name); });
+}
+
+function renderKeywords() {
+  const tally = {};
+  filtered({ ignoreKw: true }).forEach(it => kwList(it).forEach(k => { tally[k] = (tally[k] || 0) + 1; }));
+  const pairs = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  rankBars($('kwBars'), pairs, name => { state.kw = state.kw === name ? '' : name; state.shown = 30; render(); });
+}
+
+function renderFrom() {
+  const tally = {};
+  filtered().forEach(it => {
+    if (!it.from) return;
+    const k = it.from;
+    tally[k] = tally[k] || [k, 0, it.src];
+    tally[k][1]++;
+  });
+  rankBars($('fromBars'), Object.values(tally).sort((a, b) => b[1] - a[1]).slice(0, 12));
+}
+
+function renderList() {
+  const items = filtered().sort((a, b) => (b.atSort > a.atSort ? 1 : -1));
+  const color = Object.fromEntries(SOURCES.map(s => [s.key, s.color]));
+  $('list').innerHTML = items.length ? items.slice(0, state.shown).map(it => `
+    <li>
+      <a href="${esc(it.link)}" target="_blank" rel="noopener">${esc(it.title || '(제목 없음)')}</a>
+      <div class="meta"><span class="dot" style="background:${color[it.src]}"></span>${esc(it.src)} · ${esc(it.from)} · ${esc(it.at)}${it.kw ? ' · ' + esc(it.kw) : ''}</div>
+    </li>`).join('') : '<li class="empty">조건에 맞는 글이 없어요</li>';
+  $('more').style.display = items.length > state.shown ? '' : 'none';
+}
+
+function render() {
+  document.querySelectorAll('#period button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.days === state.days));
+  document.querySelectorAll('#source button').forEach(b => b.setAttribute('aria-pressed', b.dataset.src === state.src));
+  const chip = $('kwchip');
+  chip.classList.toggle('on', !!state.kw);
+  chip.textContent = `키워드: ${state.kw} ✕`;
+  renderTiles();
+  renderChart();
+  renderKeywords();
+  renderFrom();
+  renderList();
+}
+
+document.querySelectorAll('#period button').forEach(b => b.onclick = () => { state.days = +b.dataset.days; state.shown = 30; render(); });
+document.querySelectorAll('#source button').forEach(b => b.onclick = () => { state.src = b.dataset.src; state.shown = 30; render(); });
+$('kwchip').onclick = () => { state.kw = ''; render(); };
+$('search').oninput = e => { state.q = e.target.value.trim(); state.shown = 30; render(); };
+$('more').onclick = () => { state.shown += 30; renderList(); };
+
+fetch(DATA_URL)
+  .then(r => r.json())
+  .then(data => {
+    ALL = data.items.map(it => {
+      const day = dayOf(it.at) || dayOf(it.got);
+      return { ...it, day, atSort: day + ' ' + String(it.at).slice(11).padStart(5, '0') };
+    });
+    $('updated').textContent = `자료 기준: ${data.updated} (최근 ${data.days}일)`;
+    render();
+  })
+  .catch(err => {
+    $('updated').innerHTML = `<span class="err">자료를 불러오지 못했어요. 창구 주소를 확인해 주세요.</span>`;
+    console.error(err);
+  });
+</script>
+</body>
+</html>
